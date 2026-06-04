@@ -55,7 +55,7 @@ class WaveFunction:
         self.sigma_y   = sigma[1]
         self.potential = TrapPotential(gamma)
         self.beta      = beta
-        self.Omega     = Omega
+        self.Omega     = Omega * min(gamma)
         if phi == None:
             # Perfil Gausstarra emango diogu
             phi = np.exp(-0.5 * ((self.grid.X / self.sigma_x)**2 + (self.grid.Y / self.sigma_y)**2), dtype=complex)

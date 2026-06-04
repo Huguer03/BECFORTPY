@@ -1,35 +1,32 @@
-import numpy as np
+import sys
 import os
+sys.path.append(os.path.abspath('../BECFORTPY'))
+import numpy as np
 import matplotlib.pyplot as plt
 from becFort import Grid, TrapPotential, Simulation, ThomasFermi
 import scienceplots
 plt.style.use(['science', 'ieee'])
 
 plt.rcParams.update({
-    'xtick.labelsize': 16,   
-    'ytick.labelsize': 16,    
-    'legend.fontsize': 14,    
+    'xtick.labelsize': 27,   
+    'ytick.labelsize': 27,    
+    'legend.fontsize': 23,    
     'axes.grid': True        
 })
 
 def graf(rtf,x_axis,diff_tf,profile_sim,profile_tf,Omega,beta):
-    fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(15, 6))
+    plt.figure(figsize=(8, 6))
     zoom = [0, (rtf + 1.5)]
 
-    ax1.plot(x_axis, diff_tf, label="Thomas-Fermi")
-    ax1.legend()
-    ax1.grid(True, linestyle=':', alpha=0.6)
-    ax1.set_xlim([0, rtf])
-
-    ax2.plot(x_axis, profile_sim,label="Simulazioa")
-    ax2.plot(x_axis, profile_tf, label="Thomas-Fermi", color='black')
-    ax2.axvline(x=rtf, linestyle='--', alpha=0.7, label=r'$r_{tf}$')
+    plt.plot(x_axis, profile_sim, label="Simulazioa", lw=1.5)
+    plt.plot(x_axis, profile_tf, label="Thomas-Fermi", color='black', lw=1.5)
+    plt.axvline(x=rtf, linestyle='--', alpha=0.7, label=r'$\bar{R}_{\text{TF}}$')
     
-    ax2.set_xlabel(r"$x$", size=18)
-    ax2.set_ylabel(r"$|\Psi|^2$", size=18)
-    ax2.set_xlim(zoom)
-    ax2.legend()
-    ax2.grid(True, linestyle=':', alpha=0.6)
+    plt.xlabel(r"$\rho$", size=30)
+    plt.ylabel(r"$|\phi|^2$", size=30)
+    plt.xlim(zoom)
+    plt.legend()
+    plt.grid(True, linestyle=':', alpha=0.6)
 
     plt.tight_layout()
     plt.savefig(f'/home/hugo/Hugo_OMEN/TFG/GrAL/figuras/profila_{str(round(Omega,1)).replace('.', '-')}_{int(beta)}.png', dpi=300)
@@ -41,7 +38,7 @@ def test_comparacion_tf(Omega):
     tf = ThomasFermi(gamma, beta)
     rtf, mutf = tf.rtf, tf.mutf
     N = (2**8, 2**8)
-    L = (8*rtf, 8*rtf)
+    L = (10*rtf, 10*rtf)
     grid = Grid(N, L)
     print(rtf, L)
     n_vortex = 0
@@ -55,17 +52,16 @@ def test_comparacion_tf(Omega):
                      positions     = None
                      )
 
-    phi_0_ruta = f"saves/phi{round(Omega,1)}_{round(gamma[0],1)}-{round(gamma[1],1)}_{n_vortex}_{tol:.0e}_{N[0]}-{N[1]}_{int(beta)}.npy"
+    phi_0_ruta = f"../saves/phi{round(Omega,1)}_{round(gamma[0],1)}-{round(gamma[1],1)}_{n_vortex}_{tol:.0e}_{N[0]}-{N[1]}_{round(L[0],3)}_{int(beta)}.npy"
     if os.path.exists(phi_0_ruta):
         print(f"Cargando estado fundamental desde {phi_0_ruta}...")
         sim.wf.phi = np.load(phi_0_ruta)
         print("Estado fundamental cargado.")
     else:
         print("No se ha encontrado estado fundamental precargado.\nIniciando proceso de cooling (Gradient descent)...")
-        sim.cooling(1e-4, tol=tol, max_iter=1e7)
+        sim.cooling(1e-5, tol=tol)
         np.save(phi_0_ruta, sim.wf.phi)
         print(f"Cooling finalizado. Nuevo estado fundamental guardado en {phi_0_ruta}")
-
     density_sim = sim.wf.density()
 
     r2 = grid.X**2 + grid.Y**2
@@ -82,7 +78,7 @@ def test_comparacion_tf(Omega):
     graf(rtf,x_axis,diff_tf,profile_sim,profile_tf,Omega,beta)
 
 if __name__ == "__main__":
-    Omega = [0.0,0.5,0.8]
+    Omega = [0.0,0.5,0.8,0.9]
     for i in Omega:
         print(i)
         test_comparacion_tf(i)
