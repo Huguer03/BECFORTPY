@@ -1,0 +1,93 @@
+import numpy as np
+import os
+import matplotlib.pyplot as plt
+from becFort import Grid, TrapPotential, Simulation, ThomasFermi
+import scienceplots
+plt.style.use(['science', 'ieee'])
+
+plt.rcParams.update({
+    'xtick.labelsize': 16,   
+    'ytick.labelsize': 16,    
+    'legend.fontsize': 14,    
+    'axes.grid': True        
+})
+
+def graf_energia(t,energia,Omega,dt):
+    plt.figure(figsize=(8, 6))
+    plt.plot(t, energia) 
+    plt.xlabel(r'$\tau(\omega_{ho})$', size=18)
+    plt.ylabel(r'$\Delta E(\tau)$', size=18)
+    plt.grid(True)
+    plt.savefig(f'/home/hugo/Hugo_OMEN/TFG/GrAL/figuras/energia_{str(Omega).replace('.', '-')}_{str(dt)}.png', dpi=300)
+
+def graf_norma(t,norma,Omega,dt):
+    plt.figure(figsize=(8, 6))
+    plt.plot(t, norma) 
+    plt.xlabel(r'$\tau(\omega_{ho})$', size=18)
+    plt.ylabel(r'$\|\phi\|_{L^2}(\tau)-1$', size=18)
+    plt.grid(True)
+    plt.savefig(f'/home/hugo/Hugo_OMEN/TFG/GrAL/figuras/norma_{str(Omega).replace('.', '-')}_{str(dt)}.png', dpi=300)
+
+def test(w=0.0, dt=1.0):
+    beta = 1000.0    
+    gamma = (10.0, 10.0)
+    Omega = w
+    tf = ThomasFermi(gamma, Omega, beta)
+    N = (2**8, 2**8)
+    L = (8*tf.rtf, 8*tf.rtf)
+    grid = Grid(N, L)
+    print(tf.rtf, L)
+    n_vortex = 0
+    tol = 1e-13
+
+    sim = Simulation(grid          = grid, 
+                     gamma         = gamma, 
+                     beta          = beta, 
+                     Omega         = Omega, 
+                     n_vortex      = 0, 
+                     vortex_charge = None, 
+                     positions     = None
+                     )
+    
+    # 4. Ejecutar el cooling
+    phi_0_ruta = f"saves/phi{round(Omega,1)}_{round(gamma[0],1)}-{round(gamma[1],1)}_{n_vortex}_{tol:.0e}_{N[0]}-{N[1]}.npy"
+    if os.path.exists(phi_0_ruta):
+        print(f"Cargando estado fundamental desde {phi_0_ruta}...")
+        sim.wf.phi = np.load(phi_0_ruta)
+        print("Estado fundamental cargado.")
+    else:
+        print("No se ha encontrado estado fundamental precargado.\nIniciando proceso de cooling (Gradient descent)...")
+        sim.cooling(1e-4, tol=tol)
+        np.save(phi_0_ruta, sim.wf.phi)
+        print(f"Cooling finalizado. Nuevo estado fundamental guardado en {phi_0_ruta}")
+
+    t_max   = dt
+    t       = np.linspace(0,t_max,500)
+    delta_t = t[1]
+    energia = [0]
+    norma = [0]
+
+    print("Cooling finalizado.")
+    E_0 = sim.wf.energy()
+    print(0, norma[0], energia[0])
+
+    # 5. Vamos a simular la hidrodinamica
+    for i in range(len(t)-1):
+        sim.hydrodynamics(delta_t,dt=1e-3)
+        norma.append(sim.wf.norma()-1)
+        energia.append(sim.wf.energy()-E_0)
+        print(i+1, norma[i+1], energia[i+1])
+
+    # 6. Visualización de resultados
+    #graf_energia(t,energia,Omega,dt)
+    #graf_norma(t,norma,Omega,dt)
+    return np.max(energia), E_0, np.max(energia) * 100 / E_0, w
+
+if __name__ == "__main__":
+    w = np.linspace(0,0.8,9)
+    print(w)
+    dt = 10
+    E_max = []
+    for Omega in w:
+        E_max.append(test(Omega,dt))
+    np.savetxt(f"saves/diff_E_max_.txt", E_max)
