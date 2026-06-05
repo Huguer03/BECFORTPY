@@ -1,39 +1,48 @@
+import sys
+import os
+sys.path.append(os.path.abspath('../BECFORTPY'))
 import numpy as np
 import matplotlib.pyplot as plt
-from becFort import Grid, TrapPotential, Simulation
+from becFort import Grid, TrapPotential, Simulation, ThomasFermi
+import scienceplots
+plt.style.use(['science', 'ieee'])
 
 def test():
-    # 1. Configuración de la malla (Grid)
-    # N: número de puntos, L: tamaño de la caja
-    dt = 0.001
-    N = (256, 256)
-    L = (40.0, 40.0)
+    beta = 1000.0
+    gamma = (10.0, 10.0)
+    Omega = 0.9
+    tf = ThomasFermi(gamma, beta)
+    N = (2**8, 2**8)
+    L = (8*tf.rtf, 8*tf.rtf)
     grid = Grid(N, L)
-    vortex_charges = [1, 1, 1, 1]
+    print(tf.rtf, L)
+    n_vortex = 1
+    vortex_charge = [1]
     positions = [
-        (2.0, 0.0),   
-        (-2.0, 0.0),
-        (0.0, 2.0),
-        (0.0, -2.0)
+        (1.0, 0.0)
     ]
+    t=1
+    tol=1e-9
 
-    # 3. Crear la simulación
     sim = Simulation(grid          = grid, 
-                     gamma         = (1.0, 1.0), 
-                     beta          = 3000.0, 
-                     Omega         = 0.99, 
-                     n_vortex      = 70, 
-                     vortex_charge = None, 
-                     positions     = None
+                     gamma         = gamma, 
+                     beta          = beta, 
+                     Omega         = Omega, 
+                     n_vortex      = n_vortex, 
+                     vortex_charge = vortex_charge, 
+                     positions     = positions
                      )
     
-    print("Iniciando proceso de cooling (Gradient descent)...")
-    
-    # 4. Ejecutar el cooling
-    sim.cooling(dt, max_iter=100000)
-
-    print("Cooling finalizado.")
-    density0 = sim.wf.density()
+    phi_0_ruta = f"../saves/phi{round(Omega,1)}_{round(gamma[0],1)}-{round(gamma[1],1)}_{n_vortex}_{tol:.0e}_{N[0]}-{N[1]}_{int(beta)}.npy"
+    if os.path.exists(phi_0_ruta):
+        print(f"Cargando estado fundamental desde {phi_0_ruta}...")
+        sim.wf.phi = np.load(phi_0_ruta)
+        print("Estado fundamental cargado.")
+    else:
+        print("No se ha encontrado estado fundamental precargado.\nIniciando proceso de cooling (Gradient descent)...")
+        sim.cooling(1e-4, tol=tol)
+        np.save(phi_0_ruta, sim.wf.phi)
+        print(f"Cooling finalizado. Nuevo estado fundamental guardado en {phi_0_ruta}")
 
     # 5. Vamos a simular la hidrodinamica
     sim.hydrodynamics(5.0,dt=dt)

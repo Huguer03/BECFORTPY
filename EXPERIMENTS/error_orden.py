@@ -80,7 +80,7 @@ def programa():
     phi_0 = sim.wf.phi.copy()
 
     # Referencia
-    phi_ref_ruta = f"../saves/phi{round(Omega,1)}_{round(gamma[0],1)}-{round(gamma[1],1)}_{n_vortex}_{tol:.0e}_{N[0]}-{N[1]}_{round(L[0],3)}_{int(beta)}_ref.npy"
+    phi_ref_ruta = f"../saves/phi{round(Omega,1)}_{round(gamma[0],1)}-{round(gamma[1],1)}_{n_vortex}_{t}_{N[0]}-{N[1]}_{round(L[0],3)}_{int(beta)}_ref.npy"
     if os.path.exists(phi_ref_ruta):
         print(f"Cargando estado de referencia desde {phi_ref_ruta}...")
         sim.wf.phi = np.load(phi_ref_ruta)

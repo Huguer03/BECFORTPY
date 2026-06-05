@@ -10,21 +10,20 @@ plt.style.use(['science', 'ieee'])
 def test():
     beta = 1000.0
     gamma = (10.0, 10.0)
-    Omega = 0.0
+    Omega = 0.9
     tf = ThomasFermi(gamma, beta)
     N = (2**8, 2**8)
     L = (8*tf.rtf, 8*tf.rtf)
     grid = Grid(N, L)
     print(tf.rtf, L)
-    n_vortex = 0
-    vortex_charge = [1, 1, 1]
+    n_vortex = 2
+    vortex_charge = [1,-1]
     positions = [
-        (tf.rtf/5.0, 0.0),
-        (0.0, -tf.rtf/5.0),
-        (-tf.rtf/5.0, tf.rtf/5.0)
+        (1.0, 0.0),
+        (0.0, 1.0)
     ]
-    t=0.20
-    tol=1e-13
+    t=1
+    tol=1e-9
 
     sim = Simulation(grid          = grid, 
                      gamma         = gamma, 
@@ -35,7 +34,7 @@ def test():
                      positions     = positions
                      )
     
-    phi_0_ruta = f"../saves/phi{round(Omega,1)}_{round(gamma[0],1)}-{round(gamma[1],1)}_{n_vortex}_{tol:.0e}_{N[0]}-{N[1]}_{int(beta)}.npy"
+    phi_0_ruta = f"../saves/phi{round(Omega,1)}_{round(gamma[0],1)}-{round(gamma[1],1)}_{n_vortex}_{tol:.0e}_{N[0]}-{N[1]}_{round(L[0],3)}_{int(beta)}.npy"
     if os.path.exists(phi_0_ruta):
         print(f"Cargando estado fundamental desde {phi_0_ruta}...")
         sim.wf.phi = np.load(phi_0_ruta)
@@ -46,17 +45,18 @@ def test():
         np.save(phi_0_ruta, sim.wf.phi)
         print(f"Cooling finalizado. Nuevo estado fundamental guardado en {phi_0_ruta}")
 
-    density0 = sim.wf.density()
+    #density0 = sim.wf.density()
     print(sim.wf.norma())
 
     # 5. Vamos a simular la hidrodinamica
     sim.hydrodynamics(t_max=t,dt=1e-3)
-    density5 = sim.wf.density()
+    density0 = sim.wf.density()
+    density5 = sim.wf.phase()
     print(t)
 
     # 6. Visualización de resultados
     fig, ax = plt.subplots(1, 2, figsize=(12, 5))
-    zoom_region = [-tf.rtf, tf.rtf, -tf.rtf, tf.rtf]
+    zoom_region = [-4*tf.rtf, 4*tf.rtf, -4*tf.rtf, 4*tf.rtf]
 
     im0 = ax[0].imshow(density0, extent=[-L[0]/2, L[0]/2, -L[1]/2, L[1]/2], cmap='inferno')
     ax[0].set_title(r"$|\Psi|^2 (t=0s)$")

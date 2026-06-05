@@ -1,14 +1,19 @@
+import sys
+import os
+sys.path.append(os.path.abspath('../BECFORTPY'))
 import numpy as np
+from becFort import Grid, TrapPotential, Simulation, ThomasFermi
+from scipy.optimize import curve_fit
 import matplotlib.pyplot as plt
 from scipy.integrate import solve_ivp
-from becFort import Grid, Simulation, ThomasFermi, TrapPotential
+import utiles as ut
 import scienceplots
 plt.style.use(['science', 'ieee'])
 
 plt.rcParams.update({
-    'xtick.labelsize': 16,   
-    'ytick.labelsize': 16,    
-    'legend.fontsize': 14,    
+    'xtick.labelsize': 27,   
+    'ytick.labelsize': 27,    
+    'legend.fontsize': 23,    
     'axes.grid': True        
 })
 
@@ -30,24 +35,34 @@ def castin():
     beta = 1000.0
     gamma = (10.0, 20.0)
     Omega = 0
-    tf = ThomasFermi(gamma, Omega, beta)
+    tf = ThomasFermi(gamma, beta)
     N = (2**8, 2**8)
-    L = (8*tf.rtf, 8*tf.rtf)
+    L = (10*tf.rtf, 10*tf.rtf)
     grid = Grid(N, L)
-    dt = 1e-4
+    n_vortex = 0
     t_max = 0.2
-    pasos_dinamica = int(t_max / dt)
+    tol = 1e-13
+    pasos_dinamica = int(t_max / 1e-3)
+    print(10*tf.rtf / 2**8)
 
-    print("1. Encontrando el estado fundamental (Cooling)...")
     sim = Simulation(grid          = grid, 
                      gamma         = gamma, 
                      beta          = beta, 
                      Omega         = Omega, 
-                     n_vortex      = 0, 
+                     n_vortex      = n_vortex, 
                      vortex_charge = None, 
                      positions     = None
                      )
-    sim.cooling(dt=1e-4, tol=1e-6)
+    phi_0_ruta = f"../saves/phi{round(Omega,1)}_{round(gamma[0],1)}-{round(gamma[1],1)}_{n_vortex}_{tol:.0e}_{N[0]}-{N[1]}_{round(L[0],3)}_{int(beta)}.npy"
+    if os.path.exists(phi_0_ruta):
+        print(f"Cargando estado fundamental desde {phi_0_ruta}...")
+        sim.wf.phi = np.load(phi_0_ruta)
+        print("Estado fundamental cargado.")
+    else:
+        print("No se ha encontrado estado fundamental precargado.\nIniciando proceso de cooling (Gradient descent)...")
+        sim.cooling(1e-4, tol=tol)
+        np.save(phi_0_ruta, sim.wf.phi)
+        print(f"Cooling finalizado. Nuevo estado fundamental guardado en {phi_0_ruta}")
 
     densidad_inicial = sim.wf.density()
     r_x0_num, r_y0_num = calcular_radio_rms(grid.X, grid.Y, densidad_inicial)
@@ -62,7 +77,7 @@ def castin():
     dt_dinamica = t_max / 10.0
 
     for i in range(10):
-        sim.hydrodynamics(t_max=dt_dinamica, dt=dt, V=V)
+        sim.hydrodynamics(t_max=dt_dinamica, dt=1e-3, V=V)
         t_actual += dt_dinamica
         
         densidad_t = sim.wf.density()
@@ -79,13 +94,13 @@ def castin():
     by_teo = sol.y[2]
 
     plt.figure(figsize=(8, 5))
-    plt.plot(tiempos_teo, bx_teo, 'b-', label=r'$b_x(t)$ (Castin-Dum teorikoa)')
-    plt.plot(tiempos_teo, by_teo, 'r-', label=r'$b_y(t)$ (Castin-Dum teorikoa)')
-    plt.plot(tiempos_num, bx_num, 'bo', label=r'$b_x(t)$ (Simulazioa)')
-    plt.plot(tiempos_num, by_num, 'ro', label=r'$b_y(t)$ (Simulazioa)')
+    plt.plot(tiempos_teo, bx_teo, 'b-', label=r'$\lambda_x(\tau)$ Castin-Dum teorikoa')
+    plt.plot(tiempos_teo, by_teo, 'r-', label=r'$\lambda_y(\tau)$ Castin-Dum teorikoa')
+    plt.plot(tiempos_num, bx_num, 'bo', label=r'$\lambda_x(\tau)$ Simulazioa')
+    plt.plot(tiempos_num, by_num, 'ro', label=r'$\lambda_y(\tau)$ Simulazioa')
 
-    plt.xlabel(r'$\tau (\omega_{ho}$)', size=18)
-    plt.ylabel(r'Eskala faktoreak $b_i(\tau)$', size=18)
+    plt.xlabel(r'$\tau$', size=30)
+    plt.ylabel(r'Eskala faktoreak $\lambda_i(\tau)$', size=30)
     plt.legend()
     plt.grid(True)
     plt.savefig('/home/hugo/Hugo_OMEN/TFG/GrAL/figuras/test_castin_dum.png', dpi=300)

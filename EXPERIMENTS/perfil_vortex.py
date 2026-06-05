@@ -1,78 +1,80 @@
+import sys
+import os
+sys.path.append(os.path.abspath('../BECFORTPY'))
 import numpy as np
 import matplotlib.pyplot as plt
-from becFort import Grid, TrapPotential, Simulation
+from becFort import Grid, TrapPotential, Simulation, ThomasFermi
+import scienceplots
+plt.style.use(['science', 'ieee'])
+
+plt.rcParams.update({
+    'xtick.labelsize': 27,   
+    'ytick.labelsize': 27,    
+    'legend.fontsize': 23,    
+    'axes.grid': True        
+})
+
+def graf(rtf,x_axis,profile_sim,profile_tf,Omega,beta):
+    plt.figure(figsize=(8, 6))
+    zoom = [0, 2.5]
+    plt.plot(x_axis, profile_sim, label="Bortize profila", linewidth=2)
+    plt.plot(x_axis, profile_tf, linestyle='--', label="Thomas-Fermi hurbilketa", linewidth=2)
+    plt.xlabel(r"$\rho$", size=30)
+    plt.ylabel(r"$|\phi|^2$", size=30)
+    plt.xlim(zoom)
+    plt.legend()
+    plt.grid(True)
+    plt.savefig(f'/home/hugo/Hugo_OMEN/TFG/GrAL/figuras/profila_{str(round(Omega,1)).replace('.', '-')}_{int(beta)}_bortize.png', dpi=300)
 
 def test_vortex_central():
-    dt = 0.001
-    N = (256, 256)
-    L = (20.0, 20.0)
+    beta = 1000.0
+    gamma = (10.0, 10.0)
+    Omega = 0.4
+    tf = ThomasFermi(gamma, beta)
+    N = (2**8, 2**8)
+    L = (8*tf.rtf, 8*tf.rtf)
     grid = Grid(N, L)
+    print(tf.rtf, L)
+    n_vortex = 1
+    vortex_charge = [1]
+    positions = [
+        (0.0, 0.0)
+    ]
+    t=1
+    tol=1e-9
 
-    potential = TrapPotential(omega=(1.0, 1.0))
-
-    sim = Simulation(
-        grid          = grid, 
-        potential     = potential, 
-        g             = 500.0, 
-        Omega         = 0.0, 
-        n_vortex      = 1, 
-        vortex_charge = [1], 
-        positions     = [(0.0, 0.0)] 
-    )
+    sim = Simulation(grid          = grid, 
+                     gamma         = gamma, 
+                     beta          = beta, 
+                     Omega         = Omega, 
+                     n_vortex      = n_vortex, 
+                     vortex_charge = vortex_charge, 
+                     positions     = positions
+                     )
     
-    print("Relajando el condensado con un vórtice central s=1...")
-    sim.cooling(dt, max_iter=50000) 
+    phi_0_ruta = f"../saves/phi{round(Omega,1)}_{round(gamma[0],1)}-{round(gamma[1],1)}_{n_vortex}_{tol:.0e}_{N[0]}-{N[1]}_{round(L[0],3)}_{int(beta)}.npy"
+    if os.path.exists(phi_0_ruta):
+        print(f"Cargando estado fundamental desde {phi_0_ruta}...")
+        sim.wf.phi = np.load(phi_0_ruta)
+        print("Estado fundamental cargado.")
+    else:
+        print("No se ha encontrado estado fundamental precargado.\nIniciando proceso de cooling (Gradient descent)...")
+        sim.cooling(1e-4, tol=tol)
+        np.save(phi_0_ruta, sim.wf.phi)
+        print(f"Cooling finalizado. Nuevo estado fundamental guardado en {phi_0_ruta}") 
 
-    density_sim1 = sim.wf.density() 
+    density_sim = sim.wf.density() 
 
-    mid_idx = N[1] // 2
-    x_axis = grid.x
-    profile_s1 = density_sim1[:, mid_idx]
-
-    sim = Simulation(
-        grid          = grid, 
-        potential     = potential, 
-        g             = 500.0, 
-        Omega         = 0.0, 
-        n_vortex      = 0, 
-        vortex_charge = None, 
-        positions     = None 
-    )
-
-    sim.cooling(dt, max_iter=50000) 
-
-    density_sim = sim.wf.density()
-
-    print("calculando TF")
-    mu = np.max(density_sim) * 500.0
-
-    V = potential(grid.X, grid.Y)
-    density_tf = (mu - V) / 500.0
+    r2 = grid.X**2 + grid.Y**2
+    density_tf = gamma[0]**2 * (tf.rtf**2 - r2) / (2 * beta)
     density_tf[density_tf < 0] = 0 
     
     mid_idx = N[1] // 2
-    x_axis = grid.x
+    x_axis = grid.x[mid_idx:]
     profile_sim = density_sim[:, mid_idx]
     profile_tf = density_tf[:, mid_idx]
 
-    plt.figure(figsize=(10, 6))
-    zoom = [-6, 6]
-
-    plt.plot(grid.x, profile_s1, label="Carga topológica s=1", color='blue', linewidth=2)
-    plt.plot(grid.x, profile_tf, linestyle='--', label="Aproximación Thomas-Fermi", color='black', linewidth=1)
-
-    plt.axvline(0, color='red', linestyle=':', alpha=0.5)
-    
-    plt.xlabel("x")
-    plt.ylabel("Densidad")
-    plt.xlim(zoom) 
-    
-    plt.title("Comparación de perfiles de vórtice según su carga")
-    plt.legend()
-    plt.grid(True, alpha=0.3)
-
-    plt.tight_layout()
-    plt.show()
+    graf(tf.rtf,grid.x,profile_sim,profile_tf,Omega,beta)
 
 if __name__ == "__main__":
     test_vortex_central()

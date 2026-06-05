@@ -14,25 +14,24 @@ plt.rcParams.update({
     'axes.grid': True        
 })
 
-def graf(rtf,x_axis,diff_tf,profile_sim,profile_tf,Omega,beta):
+def graf(v,o,b):
     plt.figure(figsize=(8, 6))
-    zoom = [0, (rtf + 1.5)]
+    plt.plot(v[0], v[2], label="Simulazioa", linewidth=2)
+    plt.plot(v[0], v[1], linestyle='--', label="Thomas-Fermi hurbilketa", linewidth=2)
+    plt.axvline(v[3], linestyle='--', label=r'$\bar{R}_{\text{TR}}$')
+    plt.xlim([0,2.5])
+    plt.grid(True)
+    if o == 0.0:
+        plt.ylabel(r'$|\phi|^2$', size=27)
+    if b == 1000:
+        plt.xlabel(fr'$\rho$', size=27)
+    if o == 0.8 and b == 10:
+        plt.legend()
+    plt.savefig(f'/home/hugo/Hugo_OMEN/TFG/GrAL/figuras/profila_{str(o).replace('.', '-')}_{b}.png', dpi=300)
 
-    plt.plot(x_axis, profile_sim, label="Simulazioa", lw=1.5)
-    plt.plot(x_axis, profile_tf, label="Thomas-Fermi", color='black', lw=1.5)
-    plt.axvline(x=rtf, linestyle='--', alpha=0.7, label=r'$\bar{R}_{\text{TF}}$')
-    
-    plt.xlabel(r"$\rho$", size=30)
-    plt.ylabel(r"$|\phi|^2$", size=30)
-    plt.xlim(zoom)
-    plt.legend()
-    plt.grid(True, linestyle=':', alpha=0.6)
 
-    plt.tight_layout()
-    plt.savefig(f'/home/hugo/Hugo_OMEN/TFG/GrAL/figuras/profila_{str(round(Omega,1)).replace('.', '-')}_{int(beta)}.png', dpi=300)
-
-def test_comparacion_tf(Omega):
-    beta = 1000.0
+def test_comparacion_tf(Omega, beta):
+    beta = beta
     gamma = (10.0, 10.0)
     Omega = Omega
     tf = ThomasFermi(gamma, beta)
@@ -59,7 +58,7 @@ def test_comparacion_tf(Omega):
         print("Estado fundamental cargado.")
     else:
         print("No se ha encontrado estado fundamental precargado.\nIniciando proceso de cooling (Gradient descent)...")
-        sim.cooling(1e-5, tol=tol)
+        sim.cooling(1e-4, tol=tol)
         np.save(phi_0_ruta, sim.wf.phi)
         print(f"Cooling finalizado. Nuevo estado fundamental guardado en {phi_0_ruta}")
     density_sim = sim.wf.density()
@@ -73,12 +72,13 @@ def test_comparacion_tf(Omega):
     profile_sim = density_sim[:, mid_idx]
     profile_tf = density_tf[:, mid_idx]
 
-    diff_tf = np.abs(profile_tf - profile_sim)
-
-    graf(rtf,x_axis,diff_tf,profile_sim,profile_tf,Omega,beta)
+    return x_axis.copy(),profile_tf.copy(),profile_sim.copy(), rtf
 
 if __name__ == "__main__":
-    Omega = [0.0,0.5,0.8,0.9]
-    for i in Omega:
-        print(i)
-        test_comparacion_tf(i)
+    Omega = [0.0, 0.5, 0.8]
+    Beta = [10, 100, 1000]
+    for b in Beta:
+        for o in Omega:
+            print(f"Simulando para beta={b}, omega={o}...")
+            v = test_comparacion_tf(o, b)
+            graf(v,round(o,1),int(b))
