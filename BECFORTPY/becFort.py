@@ -124,10 +124,9 @@ class SSFM:
         self.beta      = beta
         self.Omega     = Omega
 
-    def evol(self, phi, final_time, dt, V):
+    def evol(self, phi, final_time, dt, gamma):
 
         phi_out = np.asfortranarray(phi.copy()).astype(np.complex128)
-        v       = np.asfortranarray(V).astype(np.float64)
         kx      = np.asfortranarray(self.grid.Kx).astype(np.float64)
         ky      = np.asfortranarray(self.grid.Ky).astype(np.float64)
         k2      = np.asfortranarray(self.grid.K2).astype(np.float64)
@@ -136,7 +135,8 @@ class SSFM:
 
         gpe_solver.gpe_solver.ssfm_evol(
                             phi        = phi_out,
-                            v          = v,
+                            gx         = gamma[0],
+                            gy         = gamma[1],
                             kx         = kx,
                             ky         = ky,
                             k2         = k2,
@@ -151,7 +151,7 @@ class SSFM:
                         )
         return phi_out
   
-    def evolcool(self, phi, dt, n_vortex, vortex_charges, positions, tol, random_seed, max_iter, V):
+    def evolcool(self, phi, dt, n_vortex, vortex_charges, positions, tol, random_seed, max_iter, gamma):
         if n_vortex > 0: 
             phi = self.vortex_phase_mask(phi           = phi, 
                                         n_vortex       = n_vortex, 
@@ -161,16 +161,16 @@ class SSFM:
                                         )
             
         phi_out = np.asfortranarray(phi.copy()).astype(np.complex128)
-        v       = np.asfortranarray(V).astype(np.float64)
         kx      = np.asfortranarray(self.grid.Kx).astype(np.float64)
         ky      = np.asfortranarray(self.grid.Ky).astype(np.float64)
         k2      = np.asfortranarray(self.grid.K2).astype(np.float64)
         x       = np.asfortranarray(self.grid.X).astype(np.float64)
         y       = np.asfortranarray(self.grid.Y).astype(np.float64)
 
-        converge = gpe_solver.gpe_solver.gradient_descent_evol(
+        converge = gpe_solver.gpe_solver.imag_evol(
                                             phi      = phi_out,
-                                            v        = v,
+                                            gx       = gamma[0],
+                                            gy       = gamma[1],
                                             kx       = kx,
                                             ky       = ky,
                                             k2       = k2,
@@ -240,7 +240,7 @@ class ThomasFermi:
     """
     def __init__(self, gamma, beta=0):
         self.mutf      = np.sqrt(beta / np.pi)
-        self.rtf       = ((4.0 * beta) / (np.max(gamma)**2 * np.pi))**0.25
+        self.rtf       = ((4.0 * beta) / (np.min(gamma)**2 * np.pi))**0.25
     
 class Simulation:
     """
@@ -248,7 +248,8 @@ class Simulation:
     """
     def __init__(self, grid, gamma, beta=0, Omega=0, n_vortex=0, vortex_charge=None, positions=None, sigma=(1.0,1.0), phi=None, seed=None):
         self.grid      = grid
-        self.potential = TrapPotential(gamma)
+        self.gamma     = gamma
+        self.potential = TrapPotential(self.gamma)
         self.vortex    = n_vortex
         self.v_charge  = vortex_charge
         self.positions = positions
@@ -258,9 +259,9 @@ class Simulation:
         self.wf        = WaveFunction(grid, sigma, gamma, beta, Omega, phi)
         self.ssfm      = SSFM(grid, beta, self.Omega)
 
-    def cooling(self, dt, tol=1E-13, max_iter=100000, V=None):
-        if V is None:
-            V = self.potential(self.grid.X, self.grid.Y)
+    def cooling(self, dt, tol=1E-13, max_iter=100000, gamma=None):
+        if gamma is None:
+            gamma = self.gamma
         self.wf.phi = self.ssfm.evolcool(phi           = self.wf.phi,
                                         dt             = dt, 
                                         n_vortex       = self.vortex, 
@@ -269,15 +270,15 @@ class Simulation:
                                         tol            = tol, 
                                         random_seed    = self.seed,
                                         max_iter       = max_iter,
-                                        V              = V
+                                        gamma          = gamma
                                         )
         self.wf.normalize()
     
-    def hydrodynamics(self, t_max, dt, V=None):
-        if V is None:
-            V = self.potential(self.grid.X, self.grid.Y)
+    def hydrodynamics(self, t_max, dt, gamma=None):
+        if gamma is None:
+            gamma = self.gamma
         self.wf.phi = self.ssfm.evol(phi        = self.wf.phi, 
                                      final_time = t_max, 
                                      dt         = dt,
-                                     V          = V
+                                     gamma      = gamma
                                      )

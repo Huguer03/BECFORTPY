@@ -34,7 +34,7 @@ def graf_norma(t,norma,Omega,dt):
     plt.savefig(f'/home/hugo/Hugo_OMEN/TFG/GrAL/figuras/norma_10.png', dpi=300)
 
 def test(w=0.0, dt=1.0):
-    beta = 1000.0    
+    beta = 100.0    
     gamma = (10.0, 10.0)
     Omega = w
     tf = ThomasFermi(gamma, beta)
@@ -62,7 +62,7 @@ def test(w=0.0, dt=1.0):
         print("Estado fundamental cargado.")
     else:
         print("No se ha encontrado estado fundamental precargado.\nIniciando proceso de cooling (Gradient descent)...")
-        sim.cooling(1e-4, tol=tol)
+        sim.cooling(1e-3, tol=tol)
         np.save(phi_0_ruta, sim.wf.phi)
         print(f"Cooling finalizado. Nuevo estado fundamental guardado en {phi_0_ruta}")
 
@@ -78,14 +78,14 @@ def test(w=0.0, dt=1.0):
 
     # 5. Vamos a simular la hidrodinamica
     for i in range(len(t)-1):
-        sim.hydrodynamics(delta_t,dt=1e-3)
+        sim.hydrodynamics(delta_t,dt=1e-4)
         norma.append(sim.wf.norma()-1)
         energia.append(sim.wf.energy()-E_0)
         print(i+1, norma[i+1], energia[i+1])
 
     # 6. Visualización de resultados
 
-    #if Omega in [0.0,0.5,0.8]:
+    if Omega in [0.0,0.5,0.8]:
         #graf_energia(t,energia,Omega,dt)
         #graf_norma(t,norma,Omega,dt)
 
@@ -100,4 +100,4 @@ if __name__ == "__main__":
     t = np.linspace(0,dt,500)
     for Omega in w:
         norma.append(test(Omega,dt))
-    graf_norma(t,norma,w,dt)
+    #graf_norma(t,norma,w,dt)

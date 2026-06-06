@@ -4,26 +4,23 @@ sys.path.append(os.path.abspath('../BECFORTPY'))
 import numpy as np
 import matplotlib.pyplot as plt
 from becFort import Grid, TrapPotential, Simulation, ThomasFermi
-import scienceplots
-plt.style.use(['science', 'ieee'])
 
 def test():
-    beta = 1000.0
+    beta = 100.0    
     gamma = (10.0, 10.0)
-    Omega = 0.9
+    Omega = 0.0
     tf = ThomasFermi(gamma, beta)
     N = (2**8, 2**8)
-    L = (8*tf.rtf, 8*tf.rtf)
+    L = (10*tf.rtf, 10*tf.rtf)
     grid = Grid(N, L)
-    print(tf.rtf, L)
-    n_vortex = 2
-    vortex_charge = [1,-1]
+    print(tf.rtf, L, L[0]/N[0])
+    n_vortex = 0
+    tol = 1e-10
+    vortex_charge = [1]
     positions = [
-        (1.0, 0.0),
-        (0.0, 1.0)
+        (0.0, 0.0)
     ]
     t=1
-    tol=1e-9
 
     sim = Simulation(grid          = grid, 
                      gamma         = gamma, 
@@ -41,17 +38,16 @@ def test():
         print("Estado fundamental cargado.")
     else:
         print("No se ha encontrado estado fundamental precargado.\nIniciando proceso de cooling (Gradient descent)...")
-        sim.cooling(1e-4, tol=tol)
+        sim.cooling(1e-5, tol=tol)
         np.save(phi_0_ruta, sim.wf.phi)
         print(f"Cooling finalizado. Nuevo estado fundamental guardado en {phi_0_ruta}")
 
-    #density0 = sim.wf.density()
-    print(sim.wf.norma())
 
-    # 5. Vamos a simular la hidrodinamica
-    sim.hydrodynamics(t_max=t,dt=1e-3)
+    print(sim.wf.norma())
     density0 = sim.wf.density()
-    density5 = sim.wf.phase()
+    # 5. Vamos a simular la hidrodinamica
+    sim.hydrodynamics(t_max=t,dt=1e-3, gamma=(10.0,10.0))
+    density5 = sim.wf.density()
     print(t)
 
     # 6. Visualización de resultados

@@ -113,42 +113,6 @@ contains
         end if
     end subroutine fft2
 
-    subroutine gradient_descent_step(phi, v, kx, ky, k2, x, y, nx, ny, dx, dy, &
-                                    beta, omega, dt)
-        complex(8), intent(inout) :: phi(nx, ny)
-        real(8), intent(in) :: v(nx, ny), kx(nx, ny), ky(nx, ny), k2(nx, ny)
-        real(8), intent(in) :: x(nx, ny), y(nx, ny)
-        integer, intent(in) :: nx, ny
-        real(8), intent(in) :: dx, dy, beta, omega, dt
-        
-        complex(8) :: phi_k(nx, ny), grad(nx, ny)
-        complex(8) :: dx_phi(nx, ny), dy_phi(nx, ny)
-        complex(8) :: temp(nx, ny)
-        real(8) :: norm
-
-        phi_k = phi
-        call fft2(phi_k, nx, ny, 1)
-        dx_phi = zi * kx * phi_k
-        dy_phi = zi * ky * phi_k
-
-        temp = -k2 * phi_k
-        call fft2(temp, nx, ny, -1)
-
-        grad = -0.5d0 * temp + v * phi + beta * abs(phi)**2 * phi
-
-        if (omega /= 0.0d0) then
-            call fft2(dx_phi, nx, ny, -1)
-            call fft2(dy_phi, nx, ny, -1)
-
-            grad = grad - zi * omega * (x * dy_phi - y * dx_phi)
-        end if
-
-        phi = phi - dt * grad 
-
-        norm = sum(abs(phi)**2) * dx * dy
-        phi = phi / sqrt(norm)
-    end subroutine gradient_descent_step
-
     function energy(phi, v, kx, ky, x, y, nx, ny, dx, dy,&
                                      beta, omega) result(E)
         complex(8), intent(in) :: phi(nx, ny)
@@ -192,143 +156,199 @@ contains
         E = E + E_rot
     end function energy
 
-    subroutine gradient_descent_evol(phi, v, kx, ky, k2, x, y, nx, ny, dx, dy, &
-                                    beta, omega, dt, max_iter, tol, converge)
-        complex(8), intent(inout) :: phi(nx, ny)
-        real(8), intent(in)  :: v(nx, ny), kx(nx, ny), ky(nx, ny), k2(nx, ny)
-        real(8), intent(in)  :: x(nx, ny), y(nx, ny)
-        integer, intent(in)  :: nx, ny
-        real(8), intent(in)  :: dx, dy, beta, omega, dt
-        logical, intent(out) :: converge
-        integer, optional    :: max_iter
-        real(8), optional    :: tol
-
-        real(8)    :: E_rel, E_new, E_old, norm
-        integer    :: i
-
-        if (.not. present(max_iter)) max_iter = 100000
-        if (.not. present(tol)) tol = 1e-6
-
-        call fftw_create_plans(nx, ny, 2)
-
-        E_old = energy(phi, v, kx, ky, x, y, nx, ny, dx, dy, beta, omega)
-
-        do i = 1, max_iter
-            call gradient_descent_step(phi, v, kx, ky, k2, x, y, nx, ny,&
-                                         dx, dy, beta, omega, dt)
-            if ( modulo(i,10) == 0 ) then
-                norm  = sum(abs(phi)**2) * dx * dy
-                phi   = phi / sqrt(norm)
-                E_new = energy(phi, v, kx, ky, x, y, nx, ny, dx, dy, beta, omega)
-                E_rel = abs(E_new - E_old) / E_old
-                E_old = E_new
-                if ( E_rel < tol ) then
-                    print*, "Iterations needed for convergence: ", i
-                    converge = .true.
-                    return
-                end if
-            end if
-        end do
-
-        if ( i == max_iter ) then
-            converge = .false.
-        end if
-
-        call fftw_destroy_plans(2)
-    end subroutine gradient_descent_evol 
-
-    subroutine rot(phi, angle, kx, ky, x, y, nx, ny)
+    subroutine imag_step(phi, gx, gy, kx, ky, k2, x, y, nx, ny, beta, dt, omega, dx, dy)
         complex(8), intent(inout) :: phi(nx,ny)
-        real(8), intent(in)       :: kx(nx,ny), ky(nx,ny)
         real(8), intent(in)       :: x(nx,ny), y(nx,ny)
-        real(8), intent(in)       :: angle
+        real(8), intent(in)       :: kx(nx,ny), ky(nx,ny), k2(nx,ny)
+        real(8), intent(in)       :: dt, beta, omega, gx, gy, dx, dy
         integer, intent(in)       :: nx, ny
 
-        real(8) :: alpha, beta
-        integer :: j, i
+        real(8) :: v(nx,ny)
         real(8) :: kx_vec(nx), ky_vec(ny)
         real(8) :: x_vec(nx), y_vec(ny)
+        integer :: i, j
 
         kx_vec = kx(:, 1)
         ky_vec = ky(1, :)
         x_vec  = x(:, 1)
         y_vec  = y(1, :)
 
-        alpha = -tan(angle / 2.0d0)
-        beta  = sin(angle)
+        v = 0.5d0 * (gx**2 * x**2 + gy**2 * y**2)
 
-        call fft(phi, nx, ny, 1, 1)
-        do j = 1, ny
-            phi(:, j) = phi(:, j) * exp(-zi * kx_vec * (alpha * y_vec(j)))
-        end do
-        call fft(phi, nx, ny, 1, -1)
+        if (omega /= 0.0d0) then
+            call fft(phi, nx, ny, 1, 1)
+            do j = 1, ny
+                phi(:, j) = phi(:, j) * exp(- (0.5d0 * kx_vec**2 + omega * y_vec(j) * kx_vec) * (dt * 0.5d0))
+            end do
+            call fft(phi, nx, ny, 1, -1)
 
-        call fft(phi, nx, ny, 2, 1)
-        do i = 1, nx
-            phi(i, :) = phi(i, :) * exp(-zi * ky_vec * (beta * x_vec(i)))
-        end do
-        call fft(phi, nx, ny, 2, -1)
+            call fft(phi, nx, ny, 2, 1)
+            do i = 1, nx
+                phi(i, :) = phi(i, :) * exp(- (0.5d0 * ky_vec**2 - omega * x_vec(i) * ky_vec) * (dt * 0.5d0))
+            end do
+            call fft(phi, nx, ny, 2, -1)
 
-        call fft(phi, nx, ny, 1, 1)
-        do j = 1, ny
-            phi(:, j) = phi(:, j) * exp(-zi * kx_vec * (alpha * y_vec(j)))
-        end do
-        call fft(phi, nx, ny, 1, -1)
-    end subroutine rot
+            phi = exp(- dt * (v + beta * abs(phi)**2)) * phi
 
-    subroutine ssfm_step(phi, v, kx, ky, k2, x, y, nx, ny, &
-                                    beta, angle, dt)
-        complex(8), intent(inout) :: phi(nx,ny)
-        real(8), intent(in)       :: v(nx,ny)
-        real(8), intent(in)       :: x(nx,ny), y(nx,ny)
-        real(8), intent(in)       :: kx(nx,ny), ky(nx,ny)
-        real(8), intent(in)       :: k2(nx,ny)
-        real(8), intent(in)       :: dt, beta, angle
-        integer, intent(in)       :: nx, ny
+            call fft(phi, nx, ny, 2, 1)
+            do i = 1, nx
+                phi(i, :) = phi(i, :) * exp(- (0.5d0 * ky_vec**2 - omega * x_vec(i) * ky_vec) * (dt * 0.5d0))
+            end do
+            call fft(phi, nx, ny, 2, -1)
 
-        phi   = exp(-zi * (v + beta * abs(phi)**2) * dt * 0.5d0) * phi
-
-        if (angle /= 0.0d0) then
-            call fft2(phi, nx, ny, 1)
-            phi = exp(-0.25d0 * zi * k2 * dt) * phi
-            call fft2(phi, nx, ny, -1)
-
-            call rot(phi, angle, kx, ky, x, y, nx, ny)
-
-            call fft2(phi, nx, ny, 1)
-            phi = exp(-0.25d0 * zi * k2 * dt) * phi
-            call fft2(phi, nx, ny, -1)
-
+            call fft(phi, nx, ny, 1, 1)
+            do j = 1, ny
+                phi(:, j) = phi(:, j) * exp(- (0.5d0 * kx_vec**2 + omega * y_vec(j) * kx_vec) * (dt * 0.5d0))
+            end do
+            call fft(phi, nx, ny, 1, -1)
         else
             call fft2(phi, nx, ny, 1)
-            phi = exp(-0.5d0 * zi * k2 * dt) * phi
+            phi = exp(-0.25d0 * k2 * dt) * phi
+            call fft2(phi, nx, ny, -1)
+
+            phi = exp(- dt * (v + beta * abs(phi)**2)) * phi
+
+            call fft2(phi, nx, ny, 1)
+            phi = exp(-0.25d0 * k2 * dt) * phi
             call fft2(phi, nx, ny, -1)
         end if
 
-        phi   = exp(-zi * (v + beta * abs(phi)**2) * dt * 0.5d0) * phi
-    end subroutine ssfm_step
+        phi = phi / sqrt( sum(abs(phi)**2) * dx * dy )
+    end subroutine imag_step
 
-    subroutine ssfm_evol(phi, v, kx, ky, k2, x, y, nx, ny,&
-                                    beta, omega, final_time, dt)
+    subroutine imag_evol(phi, gx, gy, kx, ky, k2, x, y, nx, ny, dx, dy, &
+                                     beta, omega, dt, max_iter, tol, converge)
+        complex(8), intent(inout) :: phi(nx, ny)
+        real(8), intent(in)       :: gx, gy
+        real(8), intent(in)       :: kx(nx, ny), ky(nx, ny), k2(nx, ny)
+        real(8), intent(in)       :: x(nx, ny), y(nx, ny)
+        integer, intent(in)       :: nx, ny
+        real(8), intent(in)       :: dx, dy, beta, omega, dt
+        logical, intent(out)      :: converge
+        integer, optional         :: max_iter
+        real(8), optional         :: tol
+
+        real(8) :: E_rel, E_new, E_old
+        real(8) :: v(nx, ny)
+        integer :: i, max_iter_val
+        real(8) :: tol_val
+
+        max_iter_val = 1000000
+        if (present(max_iter)) max_iter_val = max_iter
+        tol_val = 1e-13
+        if (present(tol)) tol_val = tol
+
+        v = 0.5d0 * (gx**2 * x**2 + gy**2 * y**2)
+
+        call fftw_create_plans(nx, ny, 0)
+
+        E_old = energy(phi, v, kx, ky, x, y, nx, ny, dx, dy, beta, omega)
+
+        do i = 1, max_iter_val
+            call imag_step(phi, gx, gy, kx, ky, k2, x, y, nx, ny, beta, dt, omega, dx, dy)
+            if (mod(i, 10) == 0) then
+                E_new = energy(phi, v, kx, ky, x, y, nx, ny, dx, dy, beta, omega)
+                E_rel = abs(E_new - E_old) / (abs(E_old) + 1.0d-15)
+                if (E_rel < tol_val) then
+                    print *, "Converged after ", i, " iterations. Final energy = ", E_new
+                    converge = .true.
+                    call fftw_destroy_plans(0)
+                    return
+                end if
+                if (mod(i, 1000) == 0) then
+                    print *, E_rel
+                end if
+                E_old = E_new
+            end if
+        end do
+
+        converge = .false.
+        print *, "Warning: maximum iterations reached without convergence"
+        call fftw_destroy_plans(0)
+    end subroutine imag_evol
+
+    subroutine ssfm_step(phi, gx, gy, kx, ky, k2, x, y, nx, ny, &
+                                    beta, dt, omega)
         complex(8), intent(inout) :: phi(nx,ny)
-        real(8), intent(in)       :: v(nx,ny)
         real(8), intent(in)       :: x(nx,ny), y(nx,ny)
         real(8), intent(in)       :: kx(nx,ny), ky(nx,ny)
         real(8), intent(in)       :: k2(nx,ny)
-        real(8), intent(in)       :: dt, beta, omega, final_time
+        real(8), intent(in)       :: dt, beta
+        real(8), intent(in)       :: omega
+        real(8), intent(in)       :: gx, gy
         integer, intent(in)       :: nx, ny
 
-        real(8) :: angle
+        real(8) :: v(nx,ny)
+        real(8) :: kx_vec(nx), ky_vec(ny)
+        real(8) :: x_vec(nx), y_vec(ny)
+        integer :: i, j
+
+        kx_vec = kx(:, 1)
+        ky_vec = ky(1, :)
+        x_vec  = x(:, 1)
+        y_vec  = y(1, :)
+
+        v = 0.5d0 * (gx**2 * x**2 + gy**2 * y**2)
+
+        if (omega /= 0.0d0) then
+            call fft(phi, nx, ny, 1, 1)
+            do j = 1, ny
+                phi(:, j) = phi(:, j) * exp(-zi * (0.5d0 * kx_vec**2 + omega * y_vec(j) * kx_vec) * (dt * 0.5d0))
+            end do
+            call fft(phi, nx, ny, 1, -1)
+
+            call fft(phi, nx, ny, 2, 1) 
+            do i = 1, nx
+                phi(i, :) = phi(i, :) * exp(-zi * (0.5d0 * ky_vec**2 - omega * x_vec(i) * ky_vec) * (dt * 0.5d0))
+            end do
+            call fft(phi, nx, ny, 2, -1)
+
+            phi = exp(-zi * (v + beta * abs(phi)**2) * dt) * phi
+
+            call fft(phi, nx, ny, 1, 1)
+            do j = 1, ny
+                phi(:, j) = phi(:, j) * exp(-zi * (0.5d0 * kx_vec**2 + omega * y_vec(j) * kx_vec) * dt * 0.5d0)
+            end do
+            call fft(phi, nx, ny, 1, -1)
+
+            call fft(phi, nx, ny, 2, 1) 
+            do i = 1, nx
+                phi(i, :) = phi(i, :) * exp(-zi * (0.5d0 * ky_vec**2 - omega * x_vec(i) * ky_vec) * (dt * 0.5d0))
+            end do
+            call fft(phi, nx, ny, 2, -1)
+        else
+
+            call fft2(phi, nx, ny, 1)
+            phi = exp(-0.25d0 * zi * k2 * dt) * phi
+            call fft2(phi, nx, ny, -1)
+
+            phi = exp(-zi * (v + beta * abs(phi)**2) * dt) * phi
+
+            call fft2(phi, nx, ny, 1)
+            phi = exp(-0.25d0 * zi * k2 * dt) * phi
+            call fft2(phi, nx, ny, -1)
+        end if
+    end subroutine ssfm_step
+
+    subroutine ssfm_evol(phi, gx, gy, kx, ky, k2, x, y, nx, ny,&
+                                    beta, omega, final_time, dt)
+        complex(8), intent(inout) :: phi(nx,ny)
+        real(8), intent(in)       :: x(nx,ny), y(nx,ny)
+        real(8), intent(in)       :: kx(nx,ny), ky(nx,ny)
+        real(8), intent(in)       :: k2(nx,ny)
+        real(8), intent(in)       :: dt, beta, omega, final_time, gx, gy
+        integer, intent(in)       :: nx, ny
+
         integer :: i, steps
+
 
         call fftw_create_plans(nx, ny, 0)
         
         steps = int(final_time / dt)
-        angle = omega * dt
 
         do i = 1,steps
-            call ssfm_step(phi, v, kx, ky, k2, x, y, nx, ny, &
-                                    beta, angle, dt)
+            call ssfm_step(phi, gx, gy, kx, ky, k2, x, y, nx, ny, &
+                                    beta, dt, omega)
         enddo
         
         call fftw_destroy_plans(0)

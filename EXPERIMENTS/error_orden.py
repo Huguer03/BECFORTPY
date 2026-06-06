@@ -110,7 +110,6 @@ def programa():
     m_err, n_err = np.sqrt(np.diag(pcov))
     m_red, m_red_err = ut.redondear_escalares(m, m_err)
     n_red, n_red_err = ut.redondear_escalares(n, n_err)
-
     R = coef_correlacion_lineal(np.log(dt_valores),np.log(error_dt),popt)
 
     grafica(np.log(dt_valores),np.log(error_dt),m,n,m_red,m_red_err,n_red,n_red_err,R,popt)
