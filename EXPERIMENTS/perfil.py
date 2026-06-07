@@ -19,7 +19,7 @@ def graf(v,o,b):
     plt.plot(v[0], v[2], label="Simulazioa", linewidth=2)
     plt.plot(v[0], v[1], linestyle='--', label="Thomas-Fermi hurbilketa", linewidth=2)
     plt.axvline(v[3], linestyle='--', label=r'$\bar{R}_{\text{TR}}$')
-    plt.xlim([0,2.5])
+    plt.xlim([0,3])
     plt.grid(True)
     if o == 0.0:
         plt.ylabel(r'$|\phi|^2$', size=27)
@@ -51,17 +51,16 @@ def test_comparacion_tf(Omega, beta):
                      positions     = None
                      )
 
-    phi_0_ruta = f"../saves/phi{round(Omega,1)}_{round(gamma[0],1)}-{round(gamma[1],1)}_{n_vortex}_{tol:.0e}_{N[0]}-{N[1]}_{round(L[0],3)}_{int(beta)}.npy"
+    phi_0_ruta = f"../saves/phi{round(Omega,1)}_{round(gamma[0],1)}-{round(gamma[1],1)}_{round(sigma[0],1)}-{round(sigma[1],1)}_{n_vortex}_{tol:.0e}_{N[0]}-{N[1]}_{round(L[0],3)}_{int(beta)}.npy"
     if os.path.exists(phi_0_ruta):
         print(f"Cargando estado fundamental desde {phi_0_ruta}...")
         sim.wf.phi = np.load(phi_0_ruta)
         print("Estado fundamental cargado.")
     else:
-        print("No se ha encontrado estado fundamental precargado.\nIniciando proceso de cooling (Gradient descent)...")
-        sim.cooling(1e-4, tol=tol)
+        print("No se ha encontrado estado fundamental precargado.\nIniciando proceso de cooling (evolucion imaginaria)...")
+        sim.cooling(5e-4, tol=tol, max_iter=20000000)
         np.save(phi_0_ruta, sim.wf.phi)
         print(f"Cooling finalizado. Nuevo estado fundamental guardado en {phi_0_ruta}")
-    density_sim = sim.wf.density()
 
     r2 = grid.X**2 + grid.Y**2
     density_tf = gamma[0]**2 * (rtf**2 - r2) / (2 * beta)

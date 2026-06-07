@@ -55,49 +55,48 @@ def test(w=0.0, dt=1.0):
                      )
     
     # 4. Ejecutar el cooling
-    phi_0_ruta = f"../saves/phi{round(Omega,1)}_{round(gamma[0],1)}-{round(gamma[1],1)}_{n_vortex}_{tol:.0e}_{N[0]}-{N[1]}_{round(L[0],3)}_{int(beta)}.npy"
+    phi_0_ruta = f"../saves/phi{round(Omega,1)}_{round(gamma[0],1)}-{round(gamma[1],1)}_{round(sigma[0],1)}-{round(sigma[1],1)}_{n_vortex}_{tol:.0e}_{N[0]}-{N[1]}_{round(L[0],3)}_{int(beta)}.npy"
     if os.path.exists(phi_0_ruta):
         print(f"Cargando estado fundamental desde {phi_0_ruta}...")
         sim.wf.phi = np.load(phi_0_ruta)
         print("Estado fundamental cargado.")
     else:
-        print("No se ha encontrado estado fundamental precargado.\nIniciando proceso de cooling (Gradient descent)...")
-        sim.cooling(1e-3, tol=tol)
+        print("No se ha encontrado estado fundamental precargado.\nIniciando proceso de cooling (evolucion imaginaria)...")
+        sim.cooling(5e-4, tol=tol, max_iter=20000000)
         np.save(phi_0_ruta, sim.wf.phi)
         print(f"Cooling finalizado. Nuevo estado fundamental guardado en {phi_0_ruta}")
 
     t_max   = dt
     t       = np.linspace(0,t_max,500)
     delta_t = t_max / 500
-    energia = [0]
-    norma = [0]
+    energia = []
+    norma   = []
 
     print("Cooling finalizado.")
     E_0 = sim.wf.energy()
-    print(0, norma[0], energia[0])
+    #print(0, norma[0], energia[0])
 
     # 5. Vamos a simular la hidrodinamica
     for i in range(len(t)-1):
         sim.hydrodynamics(delta_t,dt=1e-4)
         norma.append(sim.wf.norma()-1)
-        energia.append(sim.wf.energy()-E_0)
-        print(i+1, norma[i+1], energia[i+1])
+        energia.append(np.abs(sim.wf.energy()-E_0))
+        print(i, norma[i], energia[i])
 
     # 6. Visualización de resultados
 
-    if Omega in [0.0,0.5,0.8]:
+    #if Omega in [0.0,0.5,0.8]:
         #graf_energia(t,energia,Omega,dt)
         #graf_norma(t,norma,Omega,dt)
 
-    return norma
+    return w, E_0, np.max(energia) * 100 / E_0, np.min(energia) * 100 / E_0, (np.max(energia) - np.min(energia)) * 100 / E_0
 
 if __name__ == "__main__":
     w = np.linspace(0,0.9,10)
-    w = [0.0,0.5,0.8]
     print(w)
-    dt = 10
-    norma = []
+    dt = 1
+    energia = []
     t = np.linspace(0,dt,500)
     for Omega in w:
-        norma.append(test(Omega,dt))
-    #graf_norma(t,norma,w,dt)
+        energia.append(test(Omega,dt))
+    np.savetxt("../saves/diff_E.txt", energia)

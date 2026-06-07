@@ -52,14 +52,14 @@ def test_vortex_central():
                      positions     = positions
                      )
     
-    phi_0_ruta = f"../saves/phi{round(Omega,1)}_{round(gamma[0],1)}-{round(gamma[1],1)}_{n_vortex}_{tol:.0e}_{N[0]}-{N[1]}_{round(L[0],3)}_{int(beta)}.npy"
+    phi_0_ruta = f"../saves/phi{round(Omega,1)}_{round(gamma[0],1)}-{round(gamma[1],1)}_{round(sigma[0],1)}-{round(sigma[1],1)}_{n_vortex}_{tol:.0e}_{N[0]}-{N[1]}_{round(L[0],3)}_{int(beta)}.npy"
     if os.path.exists(phi_0_ruta):
         print(f"Cargando estado fundamental desde {phi_0_ruta}...")
         sim.wf.phi = np.load(phi_0_ruta)
         print("Estado fundamental cargado.")
     else:
-        print("No se ha encontrado estado fundamental precargado.\nIniciando proceso de cooling (Gradient descent)...")
-        sim.cooling(1e-4, tol=tol)
+        print("No se ha encontrado estado fundamental precargado.\nIniciando proceso de cooling (evolucion imaginaria)...")
+        sim.cooling(5e-4, tol=tol, max_iter=20000000)
         np.save(phi_0_ruta, sim.wf.phi)
         print(f"Cooling finalizado. Nuevo estado fundamental guardado en {phi_0_ruta}") 
 

@@ -44,12 +44,12 @@ def grafica(x,y,m,n,m_red,m_err,n_red,n_err,R,popt):
 	plt.savefig(f'/home/hugo/Hugo_OMEN/TFG/GrAL/figuras/errore_ordena.png', dpi=300)
 
 def programa():
-    beta = 1000.0
+    beta = 100.0
     gamma = (10.0, 10.0)
     Omega = 0.0
     tf = ThomasFermi(gamma, beta)
     N = (2**6, 2**6)
-    L = (8*tf.rtf, 8*tf.rtf)
+    L = (10*tf.rtf, 10*tf.rtf)
     grid = Grid(N, L)
     print(tf.rtf, L)
     n_vortex = 0
@@ -66,34 +66,34 @@ def programa():
                      )
 
 
-    phi_0_ruta = f"../saves/phi{round(Omega,1)}_{round(gamma[0],1)}-{round(gamma[1],1)}_{n_vortex}_{tol:.0e}_{N[0]}-{N[1]}_{round(L[0],3)}_{int(beta)}.npy"
+    phi_0_ruta = f"../saves/phi{round(Omega,1)}_{round(gamma[0],1)}-{round(gamma[1],1)}_{round(sigma[0],1)}-{round(sigma[1],1)}_{n_vortex}_{tol:.0e}_{N[0]}-{N[1]}_{round(L[0],3)}_{int(beta)}.npy"
     if os.path.exists(phi_0_ruta):
         print(f"Cargando estado fundamental desde {phi_0_ruta}...")
         sim.wf.phi = np.load(phi_0_ruta)
         print("Estado fundamental cargado.")
     else:
-        print("No se ha encontrado estado fundamental precargado.\nIniciando proceso de cooling (Gradient descent)...")
-        sim.cooling(1e-4, tol=tol)
+        print("No se ha encontrado estado fundamental precargado.\nIniciando proceso de cooling (evolucion imaginaria)...")
+        sim.cooling(5e-4, tol=tol, max_iter=20000000)
         np.save(phi_0_ruta, sim.wf.phi)
         print(f"Cooling finalizado. Nuevo estado fundamental guardado en {phi_0_ruta}")
 
     phi_0 = sim.wf.phi.copy()
 
     # Referencia
-    phi_ref_ruta = f"../saves/phi{round(Omega,1)}_{round(gamma[0],1)}-{round(gamma[1],1)}_{n_vortex}_{t}_{N[0]}-{N[1]}_{round(L[0],3)}_{int(beta)}_ref.npy"
+    phi_ref_ruta = f"../saves/phi{round(Omega,1)}_{round(gamma[0],1)}-{round(gamma[1],1)}_{round(sigma[0],1)}-{round(sigma[1],1)}_{n_vortex}_{t}_{N[0]}-{N[1]}_{round(L[0],3)}_{int(beta)}_ref.npy"
     if os.path.exists(phi_ref_ruta):
         print(f"Cargando estado de referencia desde {phi_ref_ruta}...")
         sim.wf.phi = np.load(phi_ref_ruta)
         print("Estado de referencia cargado.")
     else:
         print("No se ha encontrado estado referencia precargado.\nIniciando proceso de hidrodinamica...")
-        sim.hydrodynamics(t,dt=1e-6)
+        sim.hydrodynamics(t,dt=1e-7)
         np.save(phi_ref_ruta, sim.wf.phi)
         print(f"Proceso finalizado. Nuevo estado de referencia guardado en {phi_ref_ruta}")
     
     phi_ref = sim.wf.phi.copy()
 
-    dt_valores = np.array([5e-3, 2e-3, 1e-3, 5e-4, 3e-4])
+    dt_valores = np.array([3e-3, 2e-3, 1e-3, 5e-4, 3e-4])
     error_dt   = np.zeros(len(dt_valores))
     pixel      = sim.grid.dx * sim.grid.dy
 
