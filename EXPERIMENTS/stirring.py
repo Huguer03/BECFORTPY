@@ -3,7 +3,7 @@ import os
 sys.path.append(os.path.abspath('../BECFORTPY'))
 import numpy as np
 import matplotlib.pyplot as plt
-from becFort import Grid, TrapPotential, Simulation, ThomasFermi
+from becFort import Grid, Simulation, ThomasFermi
 import scienceplots
 plt.style.use(['science', 'ieee'])
 

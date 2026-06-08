@@ -1,17 +1,9 @@
 import numpy as np 
-from scipy.fft import fft2, ifft2, fftfreq 
-from scipy.ndimage import map_coordinates
+from scipy.fft import fft2, ifft2, fftfreq
 import gpe_solver
 
 class Grid:
-    """
-    Definituko dugu espazioaren diskretizazioa
-    """
     def __init__(self, N, L):
-        """
-        N:   Zenbat puntutan banatuko dugu, tupla (Nx, Ny)
-        L:   Kaxaren luzera, tupla (Lx, Ly) eta [-Li/2,Li/2]
-        """
         self.Nx = N[0]
         self.Ny = N[1]
         self.N  = N[0]*N[1]
@@ -20,12 +12,10 @@ class Grid:
         self.dx = self.Lx/self.Nx
         self.dy = self.Ly/self.Ny
 
-        # Espazio erreala
         self.x = np.linspace(-self.Lx/2, self.Lx/2, self.Nx, endpoint=False)
         self.y = np.linspace(-self.Ly/2, self.Ly/2, self.Ny, endpoint=False)
         self.X, self.Y = np.meshgrid(self.x, self.y, indexing='ij')
 
-        # k espazioa lortu
         self.kx = 2.0 * np.pi * fftfreq(self.Nx, self.dx)
         self.ky = 2.0 * np.pi * fftfreq(self.Ny, self.dy)
         self.Kx, self.Ky = np.meshgrid(self.kx, self.ky, indexing='ij')
@@ -40,40 +30,26 @@ class Grid:
         return ifft2(phi, norm="ortho")
 
     def laplacian(self, phi_k):
-        """
-        Laplazearra k espazioan: -|K|^2 * phi_k
-        """
         return - self.K2 * phi_k
 
 class WaveFunction:
-    """
-    Uhin funtzioaren logika 2D-tan.
-    """
     def __init__(self, grid, sigma=(1.0,1.0), gamma=(0,0), beta=0, Omega=0.0, phi=None):
         self.grid      = grid
         self.sigma_x   = sigma[0]
         self.sigma_y   = sigma[1]
-        self.potential = TrapPotential(gamma)
         self.beta      = beta
         self.Omega     = Omega * min(gamma)
         if phi == None:
-            # Perfil Gausstarra emango diogu
             phi = np.exp(-0.5 * ((self.grid.X / self.sigma_x)**2 + (self.grid.Y / self.sigma_y)**2), dtype=complex)
 
         self.phi = phi
         self.normalize()
 
     def normalize(self, A=1.0):
-        """
-        Normalizatuko dugu uhin funtzioa. A normalizazio helburua da.
-        """
         norma = np.sum(np.abs(self.phi)**2) * self.grid.dx * self.grid.dy 
         self.phi *= np.sqrt(A / norma)
 
     def density(self):
-        """
-        Dentsitatea bueltatzen du |phi|^2
-        """
         return np.abs(self.phi)**2 
     
     def phase(self):
@@ -101,31 +77,12 @@ class WaveFunction:
         else:
             return np.real(E_kin + E_pot + E_beta)
 
-class TrapPotential:
-    """
-    Erabiliko dugu potentzial harmonikoa
-    """
-    def __init__(self, gamma):
-        """
-        gamma: tupla bat da non (gamma_x, gamma_y)
-        """
-        self.gamma_x, self.gamma_y = gamma
-
-    def __call__(self, X, Y):
-        return 0.5 * (self.gamma_x**2 * X**2 + self.gamma_y**2 * Y**2)
-
 class SSFM:
-    """
-    Bigarren  ordeneko   splip-step  Fourier   metodoa 
-    erabiliko dugu GPE ekuazioa biraketarekin ebazteko.
-    """
-    def __init__(self, grid, beta=0, Omega=0):
+    def __init__(self, grid, beta=0):
         self.grid      = grid
         self.beta      = beta
-        self.Omega     = Omega
 
-    def evol(self, phi, final_time, dt, gamma):
-
+    def evol(self, phi, final_time, dt, gamma, Omega):
         phi_out = np.asfortranarray(phi.copy()).astype(np.complex128)
         kx      = np.asfortranarray(self.grid.Kx).astype(np.float64)
         ky      = np.asfortranarray(self.grid.Ky).astype(np.float64)
@@ -145,13 +102,13 @@ class SSFM:
                             nx         = self.grid.Nx,
                             ny         = self.grid.Ny,
                             beta       = self.beta,
-                            omega      = self.Omega,
+                            omega      = Omega,
                             final_time = final_time,
                             dt         = dt
                         )
         return phi_out
   
-    def evolcool(self, phi, dt, n_vortex, vortex_charges, positions, tol, random_seed, max_iter, gamma):
+    def evolcool(self, phi, dt, n_vortex, vortex_charges, positions, tol, random_seed, max_iter, gamma, Omega):
         if n_vortex > 0: 
             phi = self.vortex_phase_mask(phi           = phi, 
                                         n_vortex       = n_vortex, 
@@ -181,7 +138,7 @@ class SSFM:
                                             dx       = self.grid.dx,
                                             dy       = self.grid.dy,
                                             beta     = self.beta,
-                                            omega    = self.Omega,
+                                            omega    = Omega,
                                             dt       = dt,
                                             max_iter = max_iter,
                                             tol      = tol
@@ -190,7 +147,7 @@ class SSFM:
         if converge == True:
             return phi_out
         else:
-            raise ValueError("Maximun iterations reached, the whave function does not converge. Final energy relative diference.")
+            raise ValueError("Maximun iterations reached, the whave function does not converge")
     
     def vortex_phase_mask(self, phi, n_vortex, vortex_charges, positions, random_seed):
         if n_vortex == 0:
@@ -223,7 +180,6 @@ class SSFM:
             elif len(positions) > n_vortex:
                 raise TypeError("MORE positions than vortex")
         
-        # Aplicar todos los vórtices
         phi_with_vortices = phi.copy()
 
         for i, (charge, (x, y)) in enumerate(zip(vortex_charges, positions)):         
@@ -235,21 +191,14 @@ class SSFM:
         return phi_with_vortices
 
 class ThomasFermi:
-    """
-    Hurbilketa
-    """
     def __init__(self, gamma, beta=0):
         self.mutf      = np.sqrt(beta / np.pi)
         self.rtf       = ((4.0 * beta) / (np.min(gamma)**2 * np.pi))**0.25
     
 class Simulation:
-    """
-    Simulazioa manipulatzeko erabiliko duguna
-    """
     def __init__(self, grid, gamma, beta=0, Omega=0, n_vortex=0, vortex_charge=None, positions=None, sigma=(1.0,1.0), phi=None, seed=None):
         self.grid      = grid
         self.gamma     = gamma
-        self.potential = TrapPotential(self.gamma)
         self.vortex    = n_vortex
         self.v_charge  = vortex_charge
         self.positions = positions
@@ -257,11 +206,17 @@ class Simulation:
         self.Omega     = Omega * min(gamma)
         self.seed      = seed
         self.wf        = WaveFunction(grid, sigma, gamma, beta, Omega, phi)
-        self.ssfm      = SSFM(grid, beta, self.Omega)
+        self.ssfm      = SSFM(grid, beta)
 
-    def cooling(self, dt, tol=1E-13, max_iter=100000, gamma=None):
+    def cooling(self, dt, tol=1E-13, max_iter=1000000, gamma=None, Omega=None):
         if gamma is None:
             gamma = self.gamma
+        if Omega == None:
+            Omega = self.Omega
+        else:
+            Omega *= np.min(gamma)
+        if dt > 1/self.beta:
+            raise ValueError("Time step discretization to lage")
         self.wf.phi = self.ssfm.evolcool(phi           = self.wf.phi,
                                         dt             = dt, 
                                         n_vortex       = self.vortex, 
@@ -270,15 +225,23 @@ class Simulation:
                                         tol            = tol, 
                                         random_seed    = self.seed,
                                         max_iter       = max_iter,
-                                        gamma          = gamma
+                                        gamma          = gamma,
+                                        Omega          = Omega
                                         )
         self.wf.normalize()
     
-    def hydrodynamics(self, t_max, dt, gamma=None):
+    def hydrodynamics(self, t_max, dt, gamma=None, Omega=None):
         if gamma is None:
             gamma = self.gamma
+        if Omega == None:
+            Omega = self.Omega
+        else:
+            Omega *= np.min(gamma)
+        if dt > 1/self.beta:
+            raise ValueError("Time step discretization to lage")
         self.wf.phi = self.ssfm.evol(phi        = self.wf.phi, 
                                      final_time = t_max, 
                                      dt         = dt,
-                                     gamma      = gamma
+                                     gamma      = gamma,
+                                     Omega      = Omega
                                      )

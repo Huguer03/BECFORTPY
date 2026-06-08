@@ -2,7 +2,7 @@ import sys
 import os
 sys.path.append(os.path.abspath('../BECFORTPY'))
 import numpy as np
-from becFort import Grid, TrapPotential, Simulation, ThomasFermi
+from becFort import Grid, Simulation, ThomasFermi
 from scipy.optimize import curve_fit
 import matplotlib.pyplot as plt
 import utiles as ut
@@ -22,18 +22,12 @@ def linear(x, m, n):
     """
     return m * x + n
 
-def coef_correlacion_lineal(x,y,popt):
-    scr = np.sum((y - linear(x, *popt))**2)
-    sct = np.sum((y - np.mean(y))**2)
-    return 1 - scr/sct
-
-def grafica(x,y,m,n,m_red,m_err,n_red,n_err,R,popt):
+def grafica(x,y,m,n,m_red,m_err,n_red,n_err,popt):
 	plt.figure(figsize=(8, 6))
 	leyenda_texto = (
 	    f"Doiketa lineala:\n"
 	    f"$m = ({m_red} \\pm {m_err})$\n"
 	    f"$n = ({n_red} \\pm {n_err})$\n"
-	    f"$R = {R:.4f}$"
 	)
 	plt.scatter(x, y, label='Simulazioen emaitzak', facecolors='none', color='black')
 	plt.plot(x, linear(x, *popt), label=leyenda_texto, lw=1.5) 
@@ -46,6 +40,7 @@ def grafica(x,y,m,n,m_red,m_err,n_red,n_err,R,popt):
 def programa():
     beta = 100.0
     gamma = (10.0, 10.0)
+    sigma = (1.0,1.0)
     Omega = 0.0
     tf = ThomasFermi(gamma, beta)
     N = (2**6, 2**6)
@@ -110,9 +105,8 @@ def programa():
     m_err, n_err = np.sqrt(np.diag(pcov))
     m_red, m_red_err = ut.redondear_escalares(m, m_err)
     n_red, n_red_err = ut.redondear_escalares(n, n_err)
-    R = coef_correlacion_lineal(np.log(dt_valores),np.log(error_dt),popt)
 
-    grafica(np.log(dt_valores),np.log(error_dt),m,n,m_red,m_red_err,n_red,n_red_err,R,popt)
+    grafica(np.log(dt_valores),np.log(error_dt),m,n,m_red,m_red_err,n_red,n_red_err,popt)
 
 if __name__ == "__main__":
 	programa()

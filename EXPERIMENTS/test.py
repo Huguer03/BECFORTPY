@@ -3,21 +3,21 @@ import os
 sys.path.append(os.path.abspath('../BECFORTPY'))
 import numpy as np
 import matplotlib.pyplot as plt
-from becFort import Grid, TrapPotential, Simulation, ThomasFermi
+from becFort import Grid, Simulation, ThomasFermi
 
 def test():
-    beta = 100.0    
+    beta = 500.0    
     gamma = (10.0, 10.0)
-    sigma = (1.0,1.1)
-    Omega = 0.7
+    sigma = (1.0,1.0)
+    Omega = 0.0
     tf = ThomasFermi(gamma, beta)
     N = (2**8, 2**8)
     L = (10*tf.rtf, 10*tf.rtf)
     grid = Grid(N, L)
     print(tf.rtf, L, L[0]/N[0])
     n_vortex = 0
-    tol = 1e-10
-    vortex_charge = [1]
+    tol = 1e-13
+    vortex_charge = [2]
     positions = [
         (0.0, 0.0)
     ]
