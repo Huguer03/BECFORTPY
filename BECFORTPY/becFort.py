@@ -82,13 +82,16 @@ class SSFM:
         self.grid      = grid
         self.beta      = beta
 
-    def evol(self, phi, final_time, dt, gamma, Omega):
+    def evol(self, phi, final_time, dt, gamma, Omega, diss, W):
+        if not diss:
+            W = np.zeros_like(self.grid.X)
         phi_out = np.asfortranarray(phi.copy()).astype(np.complex128)
         kx      = np.asfortranarray(self.grid.Kx).astype(np.float64)
         ky      = np.asfortranarray(self.grid.Ky).astype(np.float64)
         k2      = np.asfortranarray(self.grid.K2).astype(np.float64)
         x       = np.asfortranarray(self.grid.X).astype(np.float64)
         y       = np.asfortranarray(self.grid.Y).astype(np.float64)
+        w       = np.asfortranarray(W).astype(np.float64)
 
         gpe_solver.gpe_solver.ssfm_evol(
                             phi        = phi_out,
@@ -104,7 +107,9 @@ class SSFM:
                             beta       = self.beta,
                             omega      = Omega,
                             final_time = final_time,
-                            dt         = dt
+                            dt         = dt,
+                            diss       = diss,
+                            w          = w
                         )
         return phi_out
   
@@ -230,10 +235,10 @@ class Simulation:
                                         )
         self.wf.normalize()
     
-    def hydrodynamics(self, t_max, dt, gamma=None, Omega=None):
+    def hydrodynamics(self, t_max, dt, gamma=None, Omega=None,diss=False, W=None):
         if gamma is None:
             gamma = self.gamma
-        if Omega == None:
+        if Omega is None:
             Omega = self.Omega
         else:
             Omega *= np.min(gamma)
@@ -243,5 +248,7 @@ class Simulation:
                                      final_time = t_max, 
                                      dt         = dt,
                                      gamma      = gamma,
-                                     Omega      = Omega
+                                     Omega      = Omega,
+                                     diss       = diss,
+                                     W          = W
                                      )

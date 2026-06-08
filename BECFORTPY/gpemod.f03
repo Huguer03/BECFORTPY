@@ -268,15 +268,16 @@ contains
     end subroutine imag_evol
 
     subroutine ssfm_step(phi, gx, gy, kx, ky, k2, x, y, nx, ny, &
-                                    beta, dt, omega)
+                                    beta, dt, omega, diss, w)
         complex(8), intent(inout) :: phi(nx,ny)
         real(8), intent(in)       :: x(nx,ny), y(nx,ny)
         real(8), intent(in)       :: kx(nx,ny), ky(nx,ny)
-        real(8), intent(in)       :: k2(nx,ny)
+        real(8), intent(in)       :: k2(nx,ny), w(nx,ny)
         real(8), intent(in)       :: dt, beta
         real(8), intent(in)       :: omega
         real(8), intent(in)       :: gx, gy
         integer, intent(in)       :: nx, ny
+        logical, intent(in)       :: diss
 
         real(8) :: v(nx,ny)
         real(8) :: kx_vec(nx), ky_vec(ny)
@@ -303,7 +304,11 @@ contains
             end do
             call fft(phi, nx, ny, 2, -1)
 
-            phi = exp(-zi * (v + beta * abs(phi)**2) * dt) * phi
+            if (diss) then
+                phi = exp(-zi * v * dt - zi * 0.5d0 * beta * abs(phi)**2 * (1 - exp(- 2 * w * dt)) / w) * exp(-w * dt) * phi
+            else
+                phi = exp(-zi * (v + beta * abs(phi)**2) * dt) * phi
+            end if
 
             call fft(phi, nx, ny, 1, 1)
             do j = 1, ny
@@ -322,7 +327,11 @@ contains
             phi = exp(-0.25d0 * zi * k2 * dt) * phi
             call fft2(phi, nx, ny, -1)
 
-            phi = exp(-zi * (v + beta * abs(phi)**2) * dt) * phi
+            if (diss) then
+                phi = exp(-zi * v * dt - zi * 0.5d0 * beta * abs(phi)**2 * (1 - exp(- 2 * w * dt)) / w) * exp(-w * dt) * phi
+            else
+                phi = exp(-zi * (v + beta * abs(phi)**2) * dt) * phi
+            end if
 
             call fft2(phi, nx, ny, 1)
             phi = exp(-0.25d0 * zi * k2 * dt) * phi
@@ -331,13 +340,14 @@ contains
     end subroutine ssfm_step
 
     subroutine ssfm_evol(phi, gx, gy, kx, ky, k2, x, y, nx, ny,&
-                                    beta, omega, final_time, dt)
+                                beta, omega, final_time, dt, diss, w)
         complex(8), intent(inout) :: phi(nx,ny)
         real(8), intent(in)       :: x(nx,ny), y(nx,ny)
         real(8), intent(in)       :: kx(nx,ny), ky(nx,ny)
-        real(8), intent(in)       :: k2(nx,ny)
+        real(8), intent(in)       :: k2(nx,ny), w(nx,ny)
         real(8), intent(in)       :: dt, beta, omega, final_time, gx, gy
         integer, intent(in)       :: nx, ny
+        logical, intent(in)       :: diss
 
         integer :: i, steps
 
@@ -348,7 +358,7 @@ contains
 
         do i = 1,steps
             call ssfm_step(phi, gx, gy, kx, ky, k2, x, y, nx, ny, &
-                                    beta, dt, omega)
+                                    beta, dt, omega, diss, w)
         enddo
         
         call fftw_destroy_plans(0)

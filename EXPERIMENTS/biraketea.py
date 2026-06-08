@@ -44,7 +44,7 @@ def graf_densidad(L, density, t, Omega):
     ax.set_xticks([])   
     ax.set_yticks([])
     fig.colorbar(im, ax=ax)
-    plt.savefig(f'/home/hugo/Hugo_OMEN/TFG/GrAL/figuras/kuadrupoloa/Omega_{Omega}/densidad_{t}.png', dpi=300)
+    plt.savefig(f'/home/hugo/Hugo_OMEN/TFG/GrAL/figuras/stirring_normal/densidad_{t}.png', dpi=300)
     plt.close()
 
 def graf_phase(L, phase, t, Omega):
@@ -57,7 +57,7 @@ def graf_phase(L, phase, t, Omega):
     ax.set_xticks([])   
     ax.set_yticks([])
     fig.colorbar(im, ax=ax)
-    plt.savefig(f'/home/hugo/Hugo_OMEN/TFG/GrAL/figuras/kuadrupoloa/Omega_{Omega}/phase_{t}.png', dpi=300)
+    plt.savefig(f'/home/hugo/Hugo_OMEN/TFG/GrAL/figuras/stirring_normal/phase_{t}.png', dpi=300)
     plt.close()
 
 def run_simulation(Omega, gy_final=9.9, ramp_time=0.2, t_max=10.0, dt=1e-3, save_images=False):
@@ -84,7 +84,6 @@ def run_simulation(Omega, gy_final=9.9, ramp_time=0.2, t_max=10.0, dt=1e-3, save
                      positions     = positions
                      )
 
-    w = sim.Omega
     
     phi_0_ruta = f"../saves/phi0.0_{gamma0[0]}-{gamma0[1]}_{sigma[0]}-{sigma[1]}_{n_vortex}_{tol:.0e}_{N[0]}-{N[1]}_{round(L[0],3)}_{int(beta)}.npy"
     if os.path.exists(phi_0_ruta):
@@ -98,7 +97,6 @@ def run_simulation(Omega, gy_final=9.9, ramp_time=0.2, t_max=10.0, dt=1e-3, save
         print(f"Cooling finalizado. Estado guardado en {phi_0_ruta}")
     
     if save_images:
-        os.makedirs(f"/home/hugo/Hugo_OMEN/TFG/GrAL/figuras/kuadrupoloa/Omega_{Omega}", exist_ok=True)
         graf_densidad(L, sim.wf.density(), 0, Omega)
         graf_phase(L, sim.wf.phase(), 0, Omega)
     
@@ -108,6 +106,8 @@ def run_simulation(Omega, gy_final=9.9, ramp_time=0.2, t_max=10.0, dt=1e-3, save
     
     time = 0.0
     steps = int(t_max / dt)
+
+    w = np.full_like(grid.X,0.04)
     
     for step in range(steps):
         time += dt
@@ -117,7 +117,7 @@ def run_simulation(Omega, gy_final=9.9, ramp_time=0.2, t_max=10.0, dt=1e-3, save
         else:
             gy = gy_final
         
-        sim.hydrodynamics(t_max=dt, dt=dt, gamma=(10.0, gy), Omega=Omega)
+        sim.hydrodynamics(t_max=dt, dt=dt, gamma=(10.0, gy), Omega=Omega, diss=True, W=w)
         
         if step % 100 == 0:
             alpha, x2, y2, xy = quadrupole(sim.wf.phi, grid, w)
@@ -136,10 +136,10 @@ def run_simulation(Omega, gy_final=9.9, ramp_time=0.2, t_max=10.0, dt=1e-3, save
     return t_vals, alpha_vals, Lz_vals
 
 def main():
-    Omega_list = [0.65,0.7,0.77,0.85,0.9]
-    gy_final = 11.0   
+    Omega_list = [0.85]
+    gy_final = 11.0
     ramp_time = 1.0
-    t_max = 10.0
+    t_max = 100.0
     dt = 1e-3
     save_images = True 
     
