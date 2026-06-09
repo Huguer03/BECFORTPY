@@ -44,7 +44,7 @@ def graf_densidad(L, density, t, Omega):
     ax.set_xticks([])   
     ax.set_yticks([])
     fig.colorbar(im, ax=ax)
-    plt.savefig(f'/home/hugo/Hugo_OMEN/TFG/GrAL/figuras/stirring_normal/densidad_{t}.png', dpi=300)
+    plt.savefig(f'../saves/simulaciones/densidad_{t}.png', dpi=300)
     plt.close()
 
 def graf_phase(L, phase, t, Omega):
@@ -57,12 +57,12 @@ def graf_phase(L, phase, t, Omega):
     ax.set_xticks([])   
     ax.set_yticks([])
     fig.colorbar(im, ax=ax)
-    plt.savefig(f'/home/hugo/Hugo_OMEN/TFG/GrAL/figuras/stirring_normal/phase_{t}.png', dpi=300)
+    plt.savefig(f'../saves/simulaciones/phase_{t}.png', dpi=300)
     plt.close()
 
 def run_simulation(Omega, gy_final=9.9, ramp_time=0.2, t_max=10.0, dt=1e-3, save_images=False):
     beta = 500.0    
-    gamma0 = (10.0, 10.0)  
+    gamma0 = (1.0, 1.0)  
     sigma = (1.0, 1.0)
     tf = ThomasFermi(gamma0, beta)
     N = (2**8, 2**8)
@@ -78,7 +78,7 @@ def run_simulation(Omega, gy_final=9.9, ramp_time=0.2, t_max=10.0, dt=1e-3, save
                      gamma         = gamma0, 
                      sigma         = sigma, 
                      beta          = beta, 
-                     Omega         = Omega,
+                     Omega         = 0,
                      n_vortex      = n_vortex, 
                      vortex_charge = vortex_charge, 
                      positions     = positions
@@ -113,18 +113,11 @@ def run_simulation(Omega, gy_final=9.9, ramp_time=0.2, t_max=10.0, dt=1e-3, save
         time += dt
         
         if time < ramp_time:
-            gy = 10.0 + (gy_final - 10.0) * (time / ramp_time)
+            gy = 1.0 + (gy_final - 1.0) * (time / ramp_time)
         else:
             gy = gy_final
         
-        sim.hydrodynamics(t_max=dt, dt=dt, gamma=(10.0, gy), Omega=Omega, diss=True, W=w)
-        
-        if step % 100 == 0:
-            alpha, x2, y2, xy = quadrupole(sim.wf.phi, grid, w)
-            Lz = angular_momentum(sim.wf.phi, grid)
-            t_vals.append(time)
-            alpha_vals.append(alpha)
-            Lz_vals.append(Lz)
+        sim.hydrodynamics(t_max=dt, dt=dt, gamma=(1.0, gy), Omega=Omega)
         
         if save_images and (step % 1000 == 0):
             graf_densidad(L, sim.wf.density(), time, Omega)
@@ -137,7 +130,7 @@ def run_simulation(Omega, gy_final=9.9, ramp_time=0.2, t_max=10.0, dt=1e-3, save
 
 def main():
     Omega_list = [0.85]
-    gy_final = 11.0
+    gy_final = 1.1
     ramp_time = 1.0
     t_max = 100.0
     dt = 1e-3

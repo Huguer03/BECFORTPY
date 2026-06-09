@@ -4,15 +4,7 @@ sys.path.append(os.path.abspath('../BECFORTPY'))
 import numpy as np
 import matplotlib.pyplot as plt
 from becFort import Grid, Simulation, ThomasFermi
-import scienceplots
-plt.style.use(['science', 'ieee'])
 
-plt.rcParams.update({
-    'xtick.labelsize': 27,   
-    'ytick.labelsize': 27,    
-    'legend.fontsize': 23,    
-    'axes.grid': True        
-})
 
 def graf_densidad(L, density, t):
     fig, ax = plt.subplots(1, 1, figsize=(8, 6)) 
@@ -25,7 +17,7 @@ def graf_densidad(L, density, t):
 
     fig.colorbar(im, ax=ax)
 
-    plt.savefig(f'/home/hugo/Hugo_OMEN/TFG/GrAL/figuras/abrikosov_densidad.png', dpi=300)
+    plt.savefig(f'/home/hugo/Hugo_OMEN/TFG/GrAL/figuras/fase_mascara_cool/{str(t)}_densidad.png', dpi=300)
     plt.close()
 
 def graf_phase(L, phase, t):
@@ -39,26 +31,26 @@ def graf_phase(L, phase, t):
 
     fig.colorbar(im, ax=ax)
 
-    plt.savefig(f'/home/hugo/Hugo_OMEN/TFG/GrAL/figuras/abrikosov_fase.png', dpi=300)
+    plt.savefig(f'/home/hugo/Hugo_OMEN/TFG/GrAL/figuras/fase_mascara_cool/{str(t)}_phase.png', dpi=300)
     plt.close()
 
 def test():
-    beta = 1000.0    
-    gamma = (10.0, 10.0)
+    beta = 100.0    
+    gamma = (10.0, 10.1)
     sigma = (1.0,1.0)
-    Omega = 0.8
+    Omega = 0.7
     tf = ThomasFermi(gamma, beta)
     N = (2**8, 2**8)
     L = (10*tf.rtf, 10*tf.rtf)
     grid = Grid(N, L)
     print(tf.rtf, L, L[0]/N[0])
     n_vortex = 0
-    tol = 1e-13
+    tol = 1e-10
     vortex_charge = [1]
     positions = [
         (0.0, 0.0)
     ]
-    t=5
+    t=0.2
 
     sim = Simulation(grid          = grid, 
                      gamma         = gamma, 
@@ -85,12 +77,11 @@ def test():
     density0 = sim.wf.density()
     #w = np.exp(-4*(grid.X**2 + grid.Y**2)/7)
     # 5. Vamos a simular la hidrodinamica
-    #sim.hydrodynamics(t_max=t,dt=1e-3, gamma=(10.0,10.0), diss=True, W=w)
+    #sim.hydrodynamics(t_max=t,dt=1e-3, gamma=(0.0,0.0), Omega=0.0)
     density0 = sim.wf.phase()
     density5 = sim.wf.density()
+    print(sim.wf.vortices(rmax=tf.rtf+0.5))
     print(t)
-    graf_phase(L, sim.wf.phase(), t)
-    graf_densidad(L, sim.wf.density(), t)
 
     # 6. Visualización de resultados
     fig, ax = plt.subplots(1, 2, figsize=(12, 5))

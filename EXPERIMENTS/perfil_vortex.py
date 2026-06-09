@@ -3,6 +3,7 @@ import os
 sys.path.append(os.path.abspath('../BECFORTPY'))
 import numpy as np
 import matplotlib.pyplot as plt
+from scipy.interpolate import interp1d
 from becFort import Grid, Simulation, ThomasFermi
 import scienceplots
 plt.style.use(['science', 'ieee'])
@@ -64,19 +65,28 @@ def test_vortex_central():
         np.save(phi_0_ruta, sim.wf.phi)
         print(f"Cooling finalizado. Nuevo estado fundamental guardado en {phi_0_ruta}") 
 
-    sim.hydrodynamics(t_max=t,dt=1e-3)
+    #sim.hydrodynamics(t_max=t,dt=1e-3)
     density_sim = sim.wf.density() 
 
     r2 = grid.X**2 + grid.Y**2
-    r  = np.sqrt(r2)
+    r = np.sqrt(r2)
     density_tf = gamma[0]**2 * (tf.rtf**2 - r2) / (2 * beta)
     density_tf[density_tf < 0] = 0
 
-    rho_0 = density_tf.max()
-    xi = 1.0 / np.sqrt(2 * beta * rho_0)
-    f_s = r / np.sqrt(xi**2 + r2)
+    xi_local = np.divide(1.0 / np.sqrt(2 * beta) , np.sqrt(density_tf), out=np.full_like(r, 1e6), where=density_tf>0)
 
-    density_tf = density_tf * (f_s**2)
+    eta_local = np.divide(r, xi_local, out=np.full_like(r, 1e6), where=density_tf>0)
+
+    data = np.load("../saves/perfil_vortex.npz")
+    eta_data = data['eta']
+    f_data = data['f']
+    if eta_data[0] > 0:
+        eta_data = np.concatenate(([0.0], eta_data))
+        f_data = np.concatenate(([0.0], f_data))
+    f_interp = interp1d(eta_data, f_data, kind='cubic', fill_value=1.0, bounds_error=False)
+    f_vals = f_interp(eta_local)
+
+    density_tf = density_tf * f_vals**2
     density_tf[density_tf < 0] = 0 
     
     mid_idx = N[1] // 2

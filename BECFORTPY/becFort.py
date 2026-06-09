@@ -1,5 +1,6 @@
 import numpy as np 
 from scipy.fft import fft2, ifft2, fftfreq
+from skimage.feature import blob_log
 import gpe_solver
 
 class Grid:
@@ -76,6 +77,7 @@ class WaveFunction:
             return np.real(E_kin + E_pot + E_beta + E_rot)
         else:
             return np.real(E_kin + E_pot + E_beta)
+
 
 class SSFM:
     def __init__(self, grid, beta=0):
